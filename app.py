@@ -3,15 +3,15 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 
-# --- CONFIGURACIÓN Y ESTILO ---
-st.set_page_config(page_title="DEMA - Simulador de Pensión", page_icon="🛡️", layout="wide")
+# --- CONFIGURACIÓN DEMA ---
+st.set_page_config(page_title="DEMA - Simulador de Pension", page_icon="🛡️", layout="wide")
 
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
     .stMetric { background-color: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     div.stButton > button:first-child { background-color: #1a5276; color: white; border-radius: 25px; font-weight: bold; }
-    .ganantizada-box { background-color: #fff4e5; border-left: 5px solid #ffa000; padding: 15px; border-radius: 5px; }
+    .ganantizada-box { background-color: #fff4e5; border-left: 5px solid #ffa000; padding: 15px; border-radius: 5px; color: #856404; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -40,35 +40,34 @@ def obtener_porcentajes(factor_uma):
     elif factor_uma <= 6.00: return 14.22, 2.415
     else: return 13.00, 2.450
 
-# --- FUNCIÓN PARA GENERAR PDF ---
+# --- GENERADOR DE PDF ---
 def generar_pdf(datos):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(200, 10, "Arquitectura Financiera DEMA", ln=True, align='C')
     pdf.set_font("Arial", '', 12)
-    pdf.cell(200, 10, "Reporte de Proyección de Pensión Ley 73", ln=True, align='C')
+    pdf.cell(200, 10, "Reporte de Proyeccion de Pension Ley 73", ln=True, align='C')
     pdf.ln(10)
     
     pdf.set_fill_color(26, 82, 118)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(190, 10, " RESUMEN DE CÁLCULO", ln=True, fill=True)
+    pdf.cell(190, 10, " RESUMEN DE CALCULO", ln=True, fill=True)
     pdf.set_text_color(0, 0, 0)
     
     for clave, valor in datos.items():
         pdf.cell(95, 10, f"{clave}:", border=1)
         pdf.cell(95, 10, f"{valor}", border=1, ln=True)
     
-    pdf.ln(20)
+    pdf.ln(10)
     pdf.set_font("Arial", 'I', 10)
-    pdf.multi_cell(0, 5, "Este documento es una proyección informativa basada en los datos proporcionados. No sustituye la resolución oficial del IMSS.")
-    
+    msg = "Este documento es una proyeccion informativa. No sustituye la resolucion oficial del IMSS."
+    pdf.multi_cell(0, 5, msg)
     return pdf.output(dest='S').encode('latin-1')
 
 st.title("🛡️ Arquitectura Financiera DEMA")
-tab1, tab2 = st.tabs(["📋 1. Salario Diario Promedio", "💰 2. Proyección de Pensión"])
+tab1, tab2 = st.tabs(["📋 1. Salario Diario Promedio", "💰 2. Proyeccion de Pension"])
 
-# ... (Todo el código de la Pestaña 1 se queda igual) ...
 with tab1:
     if 'historial' not in st.session_state: st.session_state.historial = []
     col_a, col_b = st.columns([1, 2])
@@ -105,64 +104,59 @@ with tab2:
     if promedio_final <= 0:
         st.warning("⚠️ Primero calcula el promedio en la pestaña 1.")
     else:
-        st.write("#### Parámetros de Jubilación")
-        cliente_nombre = st.text_input("Nombre del Cliente", "Prospecto DEMA")
+        st.write("#### Parametros de Jubilacion")
+        nombre_c = st.text_input("Nombre del Cliente", "Prospecto DEMA")
         c1, c2, c3 = st.columns(3)
         with c1:
-            uma = st.number_input("Valor UMA (2026)", value=117.31)
-            semanas_t = st.number_input("Total de Semanas Cotizadas", min_value=500, value=1500)
-            salario_minimo = st.number_input("Salario Mínimo (2025)", value=315.04)
+            uma = st.number_input("Valor UMA vigente", value=117.31)
+            semanas_t = st.number_input("Semanas Totales", min_value=500, value=1500)
+            s_minimo = st.number_input("Salario Minimo (2025)", value=315.04)
         with c2:
-            edad = st.selectbox("Edad al pensionarse", [60, 61, 62, 63, 64, 65], index=0)
+            edad = st.selectbox("Edad al pensionarse", [60, 61, 62, 63, 64, 65])
             pct_edad = {60: 0.75, 61: 0.80, 62: 0.85, 63: 0.90, 64: 0.95, 65: 1.0}
         with c3:
-            st.write("Asignaciones Familiares")
             esposa = st.checkbox("Esposa / Viuda (15%)")
-            hijos = st.number_input("Hijos Estudiando (10% c/u)", 0, 5, 0)
-            padres = st.number_input("Padres Dependientes (10% c/u)", 0, 2, 0)
+            hijos = st.number_input("Hijos Estudiando (10% c/u)", 0, 5)
+            padres = st.number_input("Padres Dependientes (10% c/u)", 0, 2)
             soledad = st.checkbox("Ayuda por Soledad (15%)") if not esposa and hijos==0 and padres==0 else False
 
-        # --- LÓGICA DE CÁLCULO ---
-        pension_minima_anual = (salario_minimo * 365) * 1.11
-        pension_minima_mensual = pension_minima_anual / 12
-
-        factor_u = promedio_final / uma
-        pct_cb, pct_ia = obtener_porcentajes(factor_u)
-        cb_anual = (promedio_final * (pct_cb/100) * 365)
-        anios_exc = (semanas_t - 500) / 52
-        ia_anual = (promedio_final * (pct_ia/100) * 365) * anios_exc
-        cuantia_pension_anual = cb_anual + ia_anual
+        # --- LOGICA DE CALCULO ---
+        minima_garantizada_mensual = ((s_minimo * 365) * 1.11) / 12
         
-        total_ayudas = (cuantia_pension_anual * 0.15 if esposa else 0) + \
-                       ((cuantia_pension_anual * 0.10) * hijos) + \
-                       ((cuantia_pension_anual * 0.10) * padres) + \
-                       (cuantia_pension_anual * 0.15 if soledad else 0)
+        factor_uma = promedio_final / uma
+        p_cb, p_ia = obtener_porcentajes(factor_uma)
+        cb_anual = promedio_final * (p_cb/100) * 365
+        ia_anual = (promedio_final * (p_ia/100) * 365) * ((semanas_t - 500) / 52)
         
-        total_con_fox = (cuantia_pension_anual + total_ayudas) * 1.11
-        pension_calc_mensual = (total_con_fox * pct_edad[edad]) / 12
+        suma_base = cb_anual + ia_anual
+        ayudas = (suma_base * 0.15 if esposa or soledad else 0) + ((suma_base * 0.10) * (hijos + padres))
+        total_pre_edad = (suma_base + ayudas) * 1.11
+        pension_mensual_calc = (total_pre_edad * pct_edad[edad]) / 12
 
-        # Comparación mínima
-        final_mostrar = max(pension_calc_mensual, pension_minima_mensual)
+        # --- APLICACION DE MINIMA ---
+        es_minima = False
+        if pension_mensual_calc < minima_garantizada_mensual:
+            pension_final = minima_garantizada_mensual
+            es_minima = True
+        else:
+            pension_final = pension_mensual_calc
 
         st.divider()
-        st.write("### 📜 Resultados")
-        res1, res2 = st.columns(2)
-        res1.metric("Pensión Mensual Final", f"${final_mostrar:,.2f}")
-        
-        # --- BOTÓN DE PDF ---
-        datos_reporte = {
-            "Cliente": cliente_nombre,
+        if es_minima:
+            st.markdown(f'<div class="ganantizada-box">⚠️ <b>Atencion:</b> El calculo original (${pension_mensual_calc:,.2f}) es menor al minimo legal. Se aplica la <b>Pension Minima Garantizada de ${pension_final:,.2f}</b>.</div>', unsafe_allow_html=True)
+            st.metric("PENSION FINAL (MINIMA)", f"${pension_final:,.2f}")
+        else:
+            st.success(f"### Pension Mensual Estimada: ${pension_final:,.2f}")
+            st.metric("PENSION CALCULADA", f"${pension_final:,.2f}")
+
+        # --- REPORTE PDF ---
+        datos_pdf = {
+            "Cliente": nombre_c,
             "Salario Diario Promedio": f"${promedio_final:,.2f}",
-            "Semanas Cotizadas": f"{semanas_t}",
-            "Edad Jubilacion": f"{edad} anos",
-            "Factor UMA": f"{factor_u:.2f}",
-            "Pension Mensual Calculada": f"${final_mostrar:,.2f}"
+            "Semanas Totales": f"{semanas_t}",
+            "Edad de Jubilacion": f"{edad} anos",
+            "Monto Mensual": f"${pension_final:,.2f}",
+            "Tipo de Pension": "Minima Garantizada" if es_minima else "Calculada por Ley 73"
         }
         
-        pdf_data = generar_pdf(datos_reporte)
-        st.download_button(
-            label="📄 Descargar Reporte PDF para el Cliente",
-            data=pdf_data,
-            file_name=f"Proyeccion_DEMA_{cliente_nombre}.pdf",
-            mime="application/pdf"
-        )
+        st.download_button("📄 Descargar Reporte PDF", data=generar_pdf(datos_pdf), file_name=f"DEMA_{nombre_c}.pdf")
